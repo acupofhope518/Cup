@@ -51,7 +51,7 @@ def parse_args():
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--batch-size", type=int, default=1)
     ap.add_argument("--grad-accum", type=int, default=8)
-    ap.add_argument("--max-seq-length", type=int, default=2048)
+    ap.add_argument("--max-length", type=int, default=2048)
     ap.add_argument("--lora-r", type=int, default=16)
     ap.add_argument("--lora-alpha", type=int, default=32)
     ap.add_argument("--lora-dropout", type=float, default=0.05)
@@ -120,7 +120,7 @@ def main():
         per_device_train_batch_size=args.batch_size,
         gradient_accumulation_steps=args.grad_accum,
         learning_rate=args.lr,
-        max_seq_length=args.max_seq_length,
+        max_length=args.max_length,
         dataset_text_field="text",
         bf16=True,
         logging_steps=10,
