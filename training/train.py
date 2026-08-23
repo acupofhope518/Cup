@@ -122,6 +122,13 @@ def main():
         learning_rate=args.lr,
         max_length=args.max_length,
         dataset_text_field="text",
+        # TRL 1.10 defaults to loss_type="chunked_nll", which patches the
+        # model's forward for memory savings. That patch assumes forward is
+        # a plain bound method, but device_map="auto" + 4-bit quantization
+        # wraps it in a functools.partial via accelerate's hooks, crashing
+        # with AttributeError: 'functools.partial' object has no attribute
+        # '__func__'. Plain "nll" avoids the patch entirely.
+        loss_type="nll",
         bf16=True,
         logging_steps=10,
         save_strategy="epoch",
