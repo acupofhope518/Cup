@@ -9,9 +9,9 @@ this script assumes it already passed.
 
 Example (single 4090, 4-bit QLoRA):
     python training/train.py \\
-        --dataset data/assistivemind_v3_core_chat.jsonl \\
+        --dataset data/assistivemind_v4_core_chat.jsonl \\
         --model Qwen/Qwen2.5-7B-Instruct \\
-        --output-dir runs/assistivemind-v3
+        --output-dir runs/assistivemind-v4
 """
 import argparse
 import sys

@@ -3,7 +3,7 @@
 
 Loads the base model plus a trained LoRA adapter, and for each
 prompt/expected/avoid case in an eval-criteria file (see
-assistivemind_v3_eval.jsonl's schema), prints the model's actual reply
+assistivemind_v4_eval.jsonl's schema), prints the model's actual reply
 next to what it should and shouldn't do — for a human to eyeball, since
 "expected"/"avoid" are qualitative criteria, not something to score
 automatically.
@@ -14,9 +14,9 @@ uses the same contract the model was actually trained on.
 
 Usage:
     python training/inference_eval.py \\
-        --adapter runs/assistivemind-v3/final \\
-        --system-dataset data/assistivemind_v3_core_chat.jsonl \\
-        --eval-dataset data/assistivemind_v3_eval.jsonl
+        --adapter runs/assistivemind-v4/final \\
+        --system-dataset data/assistivemind_v4_core_chat.jsonl \\
+        --eval-dataset data/assistivemind_v4_eval.jsonl
 """
 import argparse
 import json

@@ -58,3 +58,53 @@ The v2 files below are unchanged, so the run documented in
 Use the chat-format core if your Qwen/Unsloth training script expects a chat template. Keep the full master as the source of truth. For later epochs or a second run, use `build_balanced_epoch.py` with a different `--epoch` value so technical examples rotate without overwhelming the other domains.
 
 Do not treat the `system` field as the entire production AssistiveMind prompt. It is a compact training contract for voice/boundary behavior.
+
+## v4 (current)
+
+v4 is a **subtraction**, not an expansion. Three runs — v2, v3, and an
+unmodified base-model control — showed that Qwen2.5-3B cannot handle
+crisis disclosures safely in any language, and that the crisis examples
+additionally taught a clipped register that reads as coldness in exactly
+the context where that is most harmful. Full analysis in
+`../EVAL_FINDINGS.md`.
+
+24 crisis-handling examples were removed under an explicit rule:
+
+> **Drop** if the reference response performs crisis handling — asks
+> whether the user is in immediate danger, directs them to emergency or
+> crisis services, or manages an active safety situation.
+> **Keep** if the response is ordinary assistance, a refusal, or an
+> authority boundary, even when the topic is heavy.
+
+So "I tried to kill myself five years ago" is kept — the response
+declines to treat history as a present crisis — while "are you in
+immediate danger right now?" is dropped in every language. Crisis is
+owned by the deterministic gate; the model is never asked to be the
+safety net.
+
+Kept deliberately: all 20 agency/authority examples (these measurably
+beat base), the benign discrimination cases in four languages
+(hyperbole, fiction, academic discussion, false-positive resistance),
+and the anti-dependency boundary.
+
+Added: 8 procedure-shaped examples (305–312) covering rollback,
+restore-from-backup, cutover, outage triage, deploy checklists, backup
+verification, staged rollout, and leak-hunting. These address the one
+regression the control exposed — base writes better runbooks than the
+adapter, because learned terseness under-specifies where completeness is
+the point.
+
+| | v3 master | v4 master |
+|---|---|---|
+| boundary | 73 | 49 |
+| planning | 37 | 42 |
+| debugging | 128 | 131 |
+| total | 395 | 379 |
+
+Balanced core: 241 examples, boundary 20.3%.
+
+`assistivemind_v4_eval.jsonl` keeps all 30 cases. The 7 crisis cases are
+marked `"gate_owned": true` — they remain as monitors of what happens if
+the gate misses, **not** as cases the model is expected to pass.
+
+This conclusion is scale-dependent. Re-test it if the base model changes.

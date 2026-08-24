@@ -1,6 +1,6 @@
 # Kaggle notebook
 
-`assistivemind_v3_qwen_qlora.ipynb` runs the same pipeline as `training/`
+`assistivemind_v4_qwen_qlora.ipynb` runs the same pipeline as `training/`
 (`format_data.py`, `train.py`, `validate_dataset.py` — pasted in verbatim,
 byte-for-byte identical to the repo versions) on Kaggle's free GPU quota,
 for iterating before renting a bigger box.
@@ -17,7 +17,7 @@ for iterating before renting a bigger box.
 3. **Run All.**
 
 No Kaggle Dataset upload is needed: the notebook downloads
-`assistivemind_v3_core_chat.jsonl` from the repo itself. If an attached
+`assistivemind_v4_core_chat.jsonl` from the repo itself. If an attached
 dataset of that name exists it is used instead, so you can still pin a
 specific copy by uploading one and using **Add Data** (**File → Add
 input** in the editor menu).
@@ -34,5 +34,5 @@ Move up to 7B once you're back on the 4090 path (`training/train.py
 script).
 
 The output LoRA adapter is zipped to
-`/kaggle/working/assistivemind-v3-lora.zip`, which Kaggle keeps as
+`/kaggle/working/assistivemind-v4-lora.zip`, which Kaggle keeps as
 notebook output once you Save & Run All / commit.

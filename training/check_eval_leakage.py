@@ -21,8 +21,8 @@ once, while character overlap degrades gracefully.
 
 Usage:
     python training/check_eval_leakage.py \\
-        --train data/assistivemind_v3_master.jsonl \\
-        --eval data/assistivemind_v3_eval.jsonl
+        --train data/assistivemind_v4_master.jsonl \\
+        --eval data/assistivemind_v4_eval.jsonl
 """
 import argparse
 import json
