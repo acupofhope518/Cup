@@ -36,7 +36,7 @@ python training/check_eval_leakage.py \
 python training/train.py \
     --dataset data/assistivemind_v3_core_chat.jsonl \
     --model Qwen/Qwen2.5-7B-Instruct \
-    --output-dir runs/assistivemind-v2
+    --output-dir runs/assistivemind-v3
 ```
 
 Use `data/assistivemind_v3_core_chat.jsonl` as the primary training set —

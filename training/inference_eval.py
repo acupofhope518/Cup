@@ -14,7 +14,7 @@ uses the same contract the model was actually trained on.
 
 Usage:
     python training/inference_eval.py \\
-        --adapter runs/assistivemind-v2/final \\
+        --adapter runs/assistivemind-v3/final \\
         --system-dataset data/assistivemind_v3_core_chat.jsonl \\
         --eval-dataset data/assistivemind_v3_eval.jsonl
 """
