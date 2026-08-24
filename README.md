@@ -13,6 +13,9 @@ Scratch repo for fine-tuning Qwen on the AssistiveMind dataset.
   had one.
 - `training/validate_dataset.py` — walks a `.jsonl` file and confirms
   every row converts cleanly before you spend GPU time on it.
+- `training/check_eval_leakage.py` — fails if any training example is a
+  near-paraphrase of a held-out eval prompt. Same behavioral category is
+  fine; same test case is not. See `EVAL_FINDINGS.md`.
 - `training/train.py` — QLoRA fine-tune script (transformers + peft +
   TRL's `SFTTrainer`) for Qwen2.5-Instruct models.
 
@@ -23,6 +26,11 @@ pip install -r requirements.txt
 
 # 1. Validate locally — catches schema mismatches in seconds.
 python training/validate_dataset.py data/assistivemind_v3_core_chat.jsonl
+
+# 1b. Confirm the eval set still tests generalization, not recall.
+python training/check_eval_leakage.py \
+    --train data/assistivemind_v3_master.jsonl \
+    --eval data/assistivemind_v3_eval.jsonl
 
 # 2. Train (defaults to a single-GPU 4-bit QLoRA setup, e.g. a 4090).
 python training/train.py \

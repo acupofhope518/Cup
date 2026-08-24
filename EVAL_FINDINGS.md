@@ -129,24 +129,68 @@ The boundary additions cover both failure shapes:
 
 ## Eval integrity
 
-The v2 crisis cases were never clean tests, per the table above. v3 eval
-therefore:
+The v2 crisis cases were never clean tests, per the table above. The
+standard applied to v3 is stricter than "not verbatim":
 
-- carries all 22 v2 cases forward, with a `training_overlap` field
-  recording the exact shared span where one exists (2 cases);
-- adds 8 held-out cases whose phrasing appears nowhere in v3 training,
-  verified programmatically by a distinctive-span check.
+> **Same behavioral category is fine. Same test case is not.**
 
-The held-out set includes **Polish**, which has zero training examples, so
+A training example should teach the same contract an eval case tests —
+that is the point — but must not restate the eval prompt closely enough
+that passing it demonstrates recall rather than behavior.
+
+`training/check_eval_leakage.py` enforces this. It scores every eval
+prompt against every training prompt two ways and fails on either:
+
+- **fuzzy similarity** ≥ 0.60 (max of character 4-gram Jaccard and
+  difflib ratio — character n-grams because word tokenization is
+  unreliable across Japanese, Croatian and Spanish simultaneously);
+- **any shared verbatim span** of ≥ 4 words / 20 characters, regardless
+  of overall score.
+
+Both are needed. `"Estoy pensando en hacerme daño"` reused inside two
+otherwise-different sentences scored only 0.566 — under the fuzzy
+threshold, caught by the span rule.
+
+### What the audit found and changed
+
+Cross-language pairs sit at a ~0.40–0.45 noise floor from character
+coincidence alone; real contamination scored 0.61–0.82. Four fixes:
+
+| Eval case | Before | Conflicting training example | Fix | After |
+|---|---|---|---|---|
+| Croatian crisis | 0.821 | v2 `Ne mogu više. Razmišljam da se ozlijedim…` | rewrote training → `Ne želim više biti ovdje…` | 0.521 |
+| Spanish crisis | 0.733 | v2 `No puedo seguir con esto. Estoy pensando…` | rewrote training → `Tengo las pastillas aquí conmigo…` | 0.433 |
+| Spanish crisis | 0.566 | new 227 `Estoy pensando en hacerme daño esta noche…` | rewrote training → `Esta noche siento que ya no aguanto más…` | — |
+| Planning scope | 0.613 | v2 `I have one week to prototype an idea…` | reworded the eval prompt | < 0.55 |
+
+The two crisis fixes rewrite the **training** side rather than dropping
+the eval cases: those two cases are the ones that failed the first run,
+making them the most valuable regression tests in the suite. Each
+replacement teaches the same contract through a different presentation —
+euphemism-clarification and imminent-means respectively — so coverage is
+preserved while the test stays honest. The v2 files on disk are
+unmodified; the rewrites apply only within v3.
+
+Example 230 was likewise replaced (it was verbatim the Croatian eval
+prompt) with an indirect escalating-urge phrasing.
+
+### Held-out additions
+
+8 cases whose phrasing appears nowhere in v3 training, verified by the
+same check. Includes **Polish**, which has zero training examples in any
+form — its nearest training neighbour scores 0.386, i.e. pure noise — so
 at least one case tests multilingual crisis handling with no in-corpus
-support at all. It also includes indirect English warning signs, a benign
-hyperbole case to catch over-triggering, and reworded versions of the two
-agency failures above.
+support at all. Also indirect English warning signs, a benign hyperbole
+case to catch over-triggering, and reworded versions of the two agency
+failures above.
 
-Note that `assistivemind_v3_master.jsonl` contains example 230, which is
-verbatim the v2 Croatian eval prompt. That case is now fully contaminated
-and is retained only as a regression check — **the held-out Croatian case
-is the real test.**
+Run before every training run:
+
+```bash
+python training/check_eval_leakage.py \
+    --train data/assistivemind_v3_master.jsonl \
+    --eval data/assistivemind_v3_eval.jsonl
+```
 
 ## Status
 
