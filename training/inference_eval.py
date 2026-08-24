@@ -47,7 +47,10 @@ def load_system_prompt(dataset_path: Path) -> str:
 def parse_args():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-model", default="Qwen/Qwen2.5-3B-Instruct")
-    ap.add_argument("--adapter", type=Path, required=True)
+    ap.add_argument("--adapter", type=Path, default=None,
+                    help="LoRA adapter to load. Omit to evaluate the base model "
+                         "alone — the control run that shows whether fine-tuning "
+                         "improved or degraded a behavior.")
     ap.add_argument("--system-dataset", type=Path, required=True)
     ap.add_argument("--eval-dataset", type=Path, required=True)
     ap.add_argument("--max-new-tokens", type=int, default=300)
@@ -69,13 +72,17 @@ def main():
             bnb_4bit_use_double_quant=True,
         )
 
-    base_model = AutoModelForCausalLM.from_pretrained(
+    model = AutoModelForCausalLM.from_pretrained(
         args.base_model,
         quantization_config=quant_config,
         torch_dtype=torch.bfloat16,
         device_map="auto",
     )
-    model = PeftModel.from_pretrained(base_model, str(args.adapter))
+    if args.adapter is None:
+        print(f"### BASE MODEL ONLY — no adapter ({args.base_model})\n")
+    else:
+        model = PeftModel.from_pretrained(model, str(args.adapter))
+        print(f"### base {args.base_model} + adapter {args.adapter}\n")
     model.eval()
 
     system_prompt = load_system_prompt(args.system_dataset)
