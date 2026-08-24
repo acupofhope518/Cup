@@ -22,23 +22,23 @@ Scratch repo for fine-tuning Qwen on the AssistiveMind dataset.
 pip install -r requirements.txt
 
 # 1. Validate locally — catches schema mismatches in seconds.
-python training/validate_dataset.py data/assistivemind_v2_core_chat.jsonl
+python training/validate_dataset.py data/assistivemind_v3_core_chat.jsonl
 
 # 2. Train (defaults to a single-GPU 4-bit QLoRA setup, e.g. a 4090).
 python training/train.py \
-    --dataset data/assistivemind_v2_core_chat.jsonl \
+    --dataset data/assistivemind_v3_core_chat.jsonl \
     --model Qwen/Qwen2.5-7B-Instruct \
     --output-dir runs/assistivemind-v2
 ```
 
-Use `data/assistivemind_v2_core_chat.jsonl` as the primary training set —
+Use `data/assistivemind_v3_core_chat.jsonl` as the primary training set —
 it's already balanced across domains (see `data/DATASET.md`). The flat
-`assistivemind_v2_core.jsonl`/`assistivemind_v2_master.jsonl` files work
+`assistivemind_v3_core.jsonl`/`assistivemind_v3_master.jsonl` files work
 too; `format_data.py` converts them to the same chat schema before
 applying the model's chat template, so the system prompt is trained as a
 real turn either way.
 
-`data/assistivemind_v2_eval.jsonl` is a **third, separate schema** —
+`data/assistivemind_v3_eval.jsonl` is a **third, separate schema** —
 `{"prompt": ..., "expected": [...], "avoid": [...]}` — held-out
 behavioral-grading criteria, not supervised training pairs. Don't pass it
 to `train.py --eval-dataset` (it isn't a loss-based eval set); it's for
@@ -47,5 +47,5 @@ training. `validate_dataset.py` recognizes and reports this schema
 separately rather than flagging it as broken.
 
 For a rotated technical-example epoch on a second run, use
-`data/build_balanced_epoch.py` against `assistivemind_v2_master.jsonl`
+`data/build_balanced_epoch.py` against `assistivemind_v3_master.jsonl`
 with a different `--epoch` value.

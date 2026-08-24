@@ -37,11 +37,10 @@ def main():
         pool = by[domain]
         if len(pool) < PER_DOMAIN:
             raise SystemExit(f"{domain}: need {PER_DOMAIN}, found {len(pool)}")
-        if domain == "debugging":
-            chosen = rng.sample(pool, PER_DOMAIN)
-        else:
-            chosen = pool[:PER_DOMAIN]
-        epoch_rows.extend(chosen)
+        # Sample every domain rather than slicing the first PER_DOMAIN. Once a
+        # domain grows past PER_DOMAIN, slicing would permanently drop whatever
+        # was appended last — which is exactly where new examples land.
+        epoch_rows.extend(rng.sample(pool, PER_DOMAIN))
 
     epoch_rows.extend(by["boundary"])
     rng.shuffle(epoch_rows)

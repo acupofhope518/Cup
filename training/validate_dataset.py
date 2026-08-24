@@ -7,7 +7,7 @@ shows up in seconds locally instead of after a training job has already
 started on rented hardware.
 
 Usage:
-    python training/validate_dataset.py data/assistivemind_v2_core_chat.jsonl
+    python training/validate_dataset.py data/assistivemind_v3_core_chat.jsonl
 """
 import argparse
 import json
@@ -42,7 +42,7 @@ def main():
             domain_counts[example.get("domain", "<none>")] += 1
 
             if {"prompt", "expected", "avoid"} <= example.keys():
-                # Behavioral-grading schema (e.g. assistivemind_v2_eval.jsonl):
+                # Behavioral-grading schema (e.g. assistivemind_v3_eval.jsonl):
                 # a held-out prompt plus criteria to check a model's reply
                 # against, not a supervised training pair. Not run through
                 # to_messages/format_example.

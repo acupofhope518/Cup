@@ -1,16 +1,16 @@
 # Kaggle notebook
 
-`assistivemind_v2_qwen_qlora.ipynb` runs the same pipeline as `training/`
+`assistivemind_v3_qwen_qlora.ipynb` runs the same pipeline as `training/`
 (`format_data.py`, `train.py`, `validate_dataset.py` — pasted in verbatim,
 byte-for-byte identical to the repo versions) on Kaggle's free GPU quota,
 for iterating before renting a bigger box.
 
 ## Setup
 
-1. On kaggle.com: **New Dataset** → upload `data/assistivemind_v2_core_chat.jsonl`
+1. On kaggle.com: **New Dataset** → upload `data/assistivemind_v3_core_chat.jsonl`
    (the rest of the pack is optional for this notebook).
 2. **New Notebook** → **File → Upload Notebook** →
-   `assistivemind_v2_qwen_qlora.ipynb`.
+   `assistivemind_v3_qwen_qlora.ipynb`.
 3. Notebook Settings (right sidebar): **Accelerator → GPU T4 x2** (or P100),
    **Internet → On** (needed to pull the base model from Hugging Face).
 4. **Add Data** → attach the dataset from step 1.
