@@ -1,6 +1,16 @@
-# Cup
+# GematriaAI
 
-Scratch repo for fine-tuning Qwen on the AssistiveMind dataset.
+Fine-tuning and safety-evaluation workspace for **GematriaAI**, a specialized
+Qwen model for discovering hidden structures, codes, mathematical patterns,
+and deep relationships in complex data. The historical AssistiveMind v2-v4
+artifacts retain their original names so previous experiments remain
+reproducible; new model and deployment identifiers use GematriaAI.
+
+Structural reasoning is the capability target. It is not a safety mechanism.
+Multilingual crisis content is intercepted before generation by a separately
+validated classifier and deterministic routing layer; GematriaAI refuses the
+crisis generation mode. See [`SAFETY.md`](SAFETY.md) for release criteria and
+[`gate/README.md`](gate/README.md) for the measured failure analysis.
 
 ## Layout
 

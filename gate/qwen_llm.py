@@ -117,7 +117,7 @@ class QwenLLM:
             api_key or os.environ.get("QWEN_API_KEY", ""), "QWEN_API_KEY"
         )
         self.model = (
-            model or os.environ.get("QWEN_MODEL", "assistivemind-qwen")
+            model or os.environ.get("QWEN_MODEL", "gematria-ai-qwen")
         ).strip()
         self.timeout = timeout or self.DEFAULT_TIMEOUT
         self.system_prompt = system_prompt
