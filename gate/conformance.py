@@ -37,6 +37,7 @@ Usage:
 """
 import argparse
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -68,6 +69,26 @@ BANDS = {
     "business": (0.00, 0.20),
 }
 CRISIS_BANDS = {"imminent", "ideation", "distress"}
+
+
+def _usable_risk(result):
+    """Return a finite probability, or ``None`` for a malformed read.
+
+    ``float('nan')`` is especially dangerous here: every comparison with it is
+    false, so the old evaluator counted it as in-band. Production adapters
+    must apply the same rule before a value reaches routing thresholds.
+    """
+    if not isinstance(result, dict) or result.get("risk_score") is None:
+        return None
+    # ``bool`` subclasses ``int`` in Python, so float(True/False) silently
+    # becomes 1.0/0.0. JSON booleans are schema violations, not probabilities.
+    if isinstance(result["risk_score"], bool):
+        return None
+    try:
+        risk = float(result["risk_score"])
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return risk if math.isfinite(risk) and 0.0 <= risk <= 1.0 else None
 
 
 class QwenClassifier:
@@ -144,13 +165,8 @@ def evaluate(classifier, probes, verbose=False):
             INTAKE_CLASSIFIER_PROMPT, probe["text"], max_tokens=400
         )
 
-        if result is None or result.get("risk_score") is None:
-            unparseable.append((probe, result))
-            continue
-
-        try:
-            risk = float(result["risk_score"])
-        except (TypeError, ValueError):
+        risk = _usable_risk(result)
+        if risk is None:
             unparseable.append((probe, result))
             continue
 

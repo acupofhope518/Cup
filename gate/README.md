@@ -63,8 +63,9 @@ So: **Haiku stays at the classifier seam. Qwen replaces DeepSeek.**
 
 ## The harness
 
-`conformance.py` runs any candidate classifier against 24 multilingual
-probes (9 languages, 14 crisis / 10 benign) using the intake prompt
+`conformance.py` runs any candidate classifier against 30 multilingual
+probes (10 languages; 19 risk and 11 non-risk cases), including six Haitian
+Creole polarity, third-party, and code-switch cases using the intake prompt
 verbatim from `app.py`, and checks that scores land in the band the tier
 thresholds require.
 
@@ -98,6 +99,17 @@ hambre"*, *"umirem od smijeha"*, *"死ぬほど忙しい"*) so that a classifier
 cannot pass by escalating anything that mentions death, and one
 mixed-language probe — an English crisis phrase inside Croatian text —
 which the lexical tripwire should catch before any LLM read.
+
+Haitian Creole is a release-blocking language because it is the reported
+incident language. Its set deliberately includes imminent and passive risk,
+a third-party report, benign figurative language, explicit negation, and
+code-switching. A single translated sentence is not language coverage.
+
+The harness also rejects non-finite and out-of-range scores. In particular,
+JSON-adjacent adapters can accidentally produce `NaN`; comparisons against
+`NaN` are always false and would otherwise turn malformed output into a
+false pass. Runtime integration must validate `risk_score` the same way and
+map an invalid result to `NOT_EVALUATED_LANGUAGE`, never to zero.
 
 ## Run this against Haiku too
 
