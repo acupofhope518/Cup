@@ -1,6 +1,6 @@
-# GematriaAI multilingual safety release gate
+# AssistiveMind multilingual safety release gate
 
-GematriaAI is a structural-reasoning model: its product promise is finding
+Gematria is AssistiveMind's internal structural-reasoning layer: its job is finding
 latent structure, codes, mathematical relationships, and non-obvious links in
 complex data. That specialization is **not** evidence that it can recognize a
 crisis, translate every language, or generate a safe crisis response.
@@ -15,10 +15,10 @@ input -> multilingual safety classifier -> deterministic routing
 
              | evaluated clear
              v
-        GematriaAI generation
+        Gematria cognition
 ```
 
-GematriaAI must never be the only component that recognizes or answers
+Gematria must never be the only component that recognizes or answers
 suicidal or self-harm content. The generation adapter refuses crisis mode.
 Classifier unavailability, invalid JSON, `NaN`, out-of-range scores, unknown
 languages, and timeouts must all fail toward care. They must never be coerced

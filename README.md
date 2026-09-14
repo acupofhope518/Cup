@@ -1,15 +1,15 @@
-# GematriaAI
+# AssistiveMind
 
-Fine-tuning and safety-evaluation workspace for **GematriaAI**, a specialized
-Qwen model for discovering hidden structures, codes, mathematical patterns,
-and deep relationships in complex data. The historical AssistiveMind v2-v4
-artifacts retain their original names so previous experiments remain
-reproducible; new model and deployment identifiers use GematriaAI.
+Fine-tuning and safety-evaluation workspace for **AssistiveMind**. **Gematria**
+is the internal cognitive architecture being tested—not a new public product
+identity. Its job is disciplined structural reasoning: discover relationships,
+try to disprove them, calibrate confidence, and only then express a result.
 
-Structural reasoning is the capability target. It is not a safety mechanism.
+Structural reasoning is a capability target, not a safety mechanism.
 Multilingual crisis content is intercepted before generation by a separately
-validated classifier and deterministic routing layer; GematriaAI refuses the
-crisis generation mode. See [`SAFETY.md`](SAFETY.md) for release criteria and
+validated classifier and deterministic routing layer; Gematria refuses the
+crisis generation mode. See [`GEMATRIA.md`](GEMATRIA.md) for the cognition /
+expression boundary, [`SAFETY.md`](SAFETY.md) for release criteria, and
 [`gate/README.md`](gate/README.md) for the measured failure analysis.
 
 ## Layout
@@ -28,6 +28,8 @@ crisis generation mode. See [`SAFETY.md`](SAFETY.md) for release criteria and
   fine; same test case is not. See `EVAL_FINDINGS.md`.
 - `training/train.py` — QLoRA fine-tune script (transformers + peft +
   TRL's `SFTTrainer`) for Qwen2.5-Instruct models.
+- `data/gematria_v1_eval.jsonl` — paired discrimination stress tests where a
+  real pattern and a seductive non-pattern are equally valid outcomes.
 
 ## Workflow
 
@@ -41,6 +43,9 @@ python training/validate_dataset.py data/assistivemind_v4_core_chat.jsonl
 python training/check_eval_leakage.py \
     --train data/assistivemind_v4_master.jsonl \
     --eval data/assistivemind_v4_eval.jsonl
+
+# 1c. Validate the matched structural-discrimination benchmark.
+python training/validate_paired_eval.py data/gematria_v1_eval.jsonl
 
 # 2. Train (defaults to a single-GPU 4-bit QLoRA setup, e.g. a 4090).
 python training/train.py \
