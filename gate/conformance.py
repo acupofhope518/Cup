@@ -31,6 +31,9 @@ Two failure classes, deliberately reported apart:
           trust and makes the product worse, but fails safe.
 
 Usage:
+    ANTHROPIC_API_KEY=... ANTHROPIC_CLASSIFIER_MODEL=... \\
+    python gate/conformance.py --classifier anthropic
+
     python gate/conformance.py --classifier qwen \\
         --base-model Qwen/Qwen2.5-3B-Instruct \\
         --adapter runs/assistivemind-v4/final
@@ -38,8 +41,11 @@ Usage:
 import argparse
 import json
 import math
+import os
 import re
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 # Verbatim from app.py — the prompt the real intake layer sends. Testing
@@ -69,6 +75,20 @@ BANDS = {
     "business": (0.00, 0.20),
 }
 CRISIS_BANDS = {"imminent", "ideation", "distress"}
+
+
+def _parse_json_object(text):
+    """Apply the production provider's fence/object JSON extraction contract."""
+    if not isinstance(text, str):
+        return None
+    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
+    start, end = cleaned.find("{"), cleaned.rfind("}")
+    if start == -1 or end <= start:
+        return None
+    try:
+        return json.loads(cleaned[start:end + 1])
+    except json.JSONDecodeError:
+        return None
 
 
 def _usable_risk(result):
@@ -146,13 +166,49 @@ class QwenClassifier:
 
         # Same extraction AnthropicLLM.json_call uses: strip fences, isolate
         # the object, parse. None on any failure — the contract's null.
-        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
-        start, end = cleaned.find("{"), cleaned.rfind("}")
-        if start == -1 or end <= start:
+        return _parse_json_object(text)
+
+
+class AnthropicClassifier:
+    """Anthropic Messages API adapter for the production classifier seam."""
+
+    DEFAULT_BASE_URL = "https://api.anthropic.com/v1"
+
+    def __init__(self, api_key, model, base_url=None, timeout=45):
+        self.api_key = "".join((api_key or "").split())
+        self.model = (model or "").strip()
+        self.base_url = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
+        self.timeout = timeout
+        self.available = bool(self.api_key and self.model)
+
+    def json_call(self, system_prompt, user_content, max_tokens=400):
+        if not self.available:
             return None
+        payload = json.dumps({
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "temperature": 0,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": user_content[:4000]}],
+        }).encode("utf-8")
+        request = urllib.request.Request(
+            f"{self.base_url}/messages", data=payload,
+            headers={
+                "content-type": "application/json",
+                "x-api-key": self.api_key,
+                "anthropic-version": "2023-06-01",
+            }, method="POST",
+        )
         try:
-            return json.loads(cleaned[start:end + 1])
-        except json.JSONDecodeError:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                body = json.loads(response.read().decode("utf-8"))
+            text = "".join(
+                block.get("text", "")
+                for block in body.get("content", [])
+                if block.get("type") == "text"
+            )
+            return _parse_json_object(text)
+        except (OSError, ValueError, KeyError, TypeError, urllib.error.URLError):
             return None
 
 
@@ -188,19 +244,37 @@ def evaluate(classifier, probes, verbose=False):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--classifier", choices=["qwen"], default="qwen")
+    ap.add_argument("--classifier", choices=["anthropic", "qwen"], required=True)
     ap.add_argument("--base-model", default="Qwen/Qwen2.5-3B-Instruct")
     ap.add_argument("--adapter", default=None)
     ap.add_argument("--probes", type=Path,
                     default=Path(__file__).parent / "probes.jsonl")
     ap.add_argument("--no-4bit", action="store_true")
+    ap.add_argument("--anthropic-api-key",
+                    default=os.environ.get("ANTHROPIC_API_KEY"))
+    ap.add_argument("--anthropic-model",
+                    default=os.environ.get("ANTHROPIC_CLASSIFIER_MODEL"))
+    ap.add_argument("--anthropic-base-url",
+                    default=os.environ.get("ANTHROPIC_API_BASE"))
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args()
 
     probes = [json.loads(l) for l in open(args.probes, encoding="utf-8") if l.strip()]
 
-    classifier = QwenClassifier(args.base_model, args.adapter, args.no_4bit)
-    label = f"{args.base_model}" + (f" + {args.adapter}" if args.adapter else " (base)")
+    if args.classifier == "anthropic":
+        if not args.anthropic_api_key or not args.anthropic_model:
+            ap.error("anthropic requires ANTHROPIC_API_KEY and "
+                     "ANTHROPIC_CLASSIFIER_MODEL (or matching CLI options)")
+        classifier = AnthropicClassifier(
+            args.anthropic_api_key, args.anthropic_model,
+            args.anthropic_base_url,
+        )
+        label = f"Anthropic production candidate ({args.anthropic_model})"
+    else:
+        classifier = QwenClassifier(args.base_model, args.adapter, args.no_4bit)
+        label = f"{args.base_model}" + (
+            f" + {args.adapter}" if args.adapter else " (base)"
+        )
     print(f"Classifier under test: {label}")
     print(f"Probes: {len(probes)}\n")
 

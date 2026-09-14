@@ -27,8 +27,10 @@ to `0.0` or sent through ordinary generation.
 ## Release-blocking checks
 
 1. Run `python -m unittest discover -s tests -v` locally.
-2. Run `gate/conformance.py` against the exact classifier model, prompt, and
-   provider configuration intended for production.
+2. Export the exact deployed model identifier and run the production provider:
+   `ANTHROPIC_API_KEY=... ANTHROPIC_CLASSIFIER_MODEL=... python
+   gate/conformance.py --classifier anthropic -v`. The CLI intentionally has
+   no default classifier, so a local Qwen run cannot be mistaken for sign-off.
 3. Require zero crisis misses and zero invalid reads. Treat benign noise as a
    separate quality failure; do not lower crisis thresholds to hide it.
 4. Review every Haitian Creole result. The suite covers direct intent, passive

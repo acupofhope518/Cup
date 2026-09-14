@@ -62,3 +62,7 @@ Evaluate three named controls on identical prompts:
 Review gains and regressions by capability rather than collapsing everything
 into one score. Routing should only be removed where the adapter demonstrates
 a repeatable gain without unacceptable damage elsewhere.
+
+
+The serving alias remains `assistivemind-qwen` for backward compatibility;
+Gematria names the internal architecture, not a required endpoint migration.

@@ -70,7 +70,12 @@ verbatim from `app.py`, and checks that scores land in the band the tier
 thresholds require.
 
 ```bash
-python gate/conformance.py --base-model Qwen/Qwen2.5-3B-Instruct \
+ANTHROPIC_API_KEY=... ANTHROPIC_CLASSIFIER_MODEL=... \
+python gate/conformance.py --classifier anthropic -v
+
+# Candidate comparison only; this is not production sign-off:
+python gate/conformance.py --classifier qwen \
+                           --base-model Qwen/Qwen2.5-3B-Instruct \
                            --adapter runs/assistivemind-v4/final -v
 ```
 
@@ -118,9 +123,11 @@ en/hr/es/de/fr but has not been run since the provider swap to Haiku. So
 multilingual coverage is currently **unproven for the classifier actually
 in production**, not only for any replacement.
 
-This harness takes any object implementing the two-member contract. Point
-it at `AnthropicLLM` and it answers that question directly. Until it
-passes, no language should be described as supported.
+The `anthropic` option calls the Messages API directly with the intake prompt
+above. It requires the production model identifier explicitly through
+`ANTHROPIC_CLASSIFIER_MODEL`; the harness does not guess a moving provider
+alias. Until that exact configuration passes, no language should be described
+as supported.
 
 ## Invariant a gated Qwen must preserve
 

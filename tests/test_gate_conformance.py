@@ -1,7 +1,8 @@
 import math
 import unittest
+from unittest.mock import patch
 
-from gate.conformance import evaluate
+from gate.conformance import AnthropicClassifier, evaluate
 
 
 class FixedClassifier:
@@ -83,6 +84,35 @@ class ProbeCoverageTests(unittest.TestCase):
         self.assertTrue({"imminent", "ideation", "benign"} <= {
             probe["band"] for probe in creole
         })
+
+
+class AnthropicClassifierTests(unittest.TestCase):
+    def test_messages_api_response_uses_classifier_contract(self):
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return b'{"content":[{"type":"text","text":"{\\"risk_score\\":0.9}"}]}'
+
+        classifier = AnthropicClassifier(
+            "test-key", "production-model", "https://example.test/v1"
+        )
+        with patch("gate.conformance.urllib.request.urlopen", return_value=Response()) as call:
+            result = classifier.json_call("system", "message")
+
+        self.assertEqual(result, {"risk_score": 0.9})
+        request = call.call_args.args[0]
+        self.assertEqual(request.full_url, "https://example.test/v1/messages")
+        self.assertEqual(request.headers["X-api-key"], "test-key")
+
+    def test_unconfigured_anthropic_fails_closed(self):
+        classifier = AnthropicClassifier("", "")
+        self.assertFalse(classifier.available)
+        self.assertIsNone(classifier.json_call("system", "message"))
 
 
 if __name__ == "__main__":
