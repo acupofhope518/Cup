@@ -27,8 +27,9 @@ to `0.0` or sent through ordinary generation.
 ## Release-blocking checks
 
 1. Run `python -m unittest discover -s tests -v` locally.
-2. Run `gate/conformance.py` against the exact classifier model, prompt, and
-   provider configuration intended for production.
+2. Run `ANTHROPIC_MODEL="<exact-production-model-id>" python
+   gate/conformance.py --classifier anthropic -v` with production credentials,
+   the exact classifier model, prompt, and provider configuration.
 3. Require zero crisis misses and zero invalid reads. Treat benign noise as a
    separate quality failure; do not lower crisis thresholds to hide it.
 4. Review every Haitian Creole result. The suite covers direct intent, passive

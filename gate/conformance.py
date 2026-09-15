@@ -38,8 +38,11 @@ Usage:
 import argparse
 import json
 import math
+import os
 import re
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 # Verbatim from app.py — the prompt the real intake layer sends. Testing
@@ -69,6 +72,19 @@ BANDS = {
     "business": (0.00, 0.20),
 }
 CRISIS_BANDS = {"imminent", "ideation", "distress"}
+
+
+def _json_object_from_text(text):
+    """Extract the JSON object required by the classifier contract."""
+    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
+    start, end = cleaned.find("{"), cleaned.rfind("}")
+    if start == -1 or end <= start:
+        return None
+    try:
+        value = json.loads(cleaned[start:end + 1])
+    except json.JSONDecodeError:
+        return None
+    return value if isinstance(value, dict) else None
 
 
 def _usable_risk(result):
@@ -146,14 +162,63 @@ class QwenClassifier:
 
         # Same extraction AnthropicLLM.json_call uses: strip fences, isolate
         # the object, parse. None on any failure — the contract's null.
-        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
-        start, end = cleaned.find("{"), cleaned.rfind("}")
-        if start == -1 or end <= start:
+        return _json_object_from_text(text)
+
+
+class AnthropicClassifier:
+    """Production-compatible Anthropic Messages API adapter for this seam."""
+
+    DEFAULT_ENDPOINT = "https://api.anthropic.com/v1/messages"
+    DEFAULT_TIMEOUT = 45
+
+    def __init__(self, api_key=None, model=None, endpoint=None, timeout=None,
+                 api_version=None):
+        self.api_key = (api_key or os.environ.get("ANTHROPIC_API_KEY", "")).strip()
+        # No model default: a release gate must name the exact production model.
+        self.model = (model or os.environ.get("ANTHROPIC_MODEL", "")).strip()
+        self.endpoint = (endpoint or os.environ.get(
+            "ANTHROPIC_API_BASE", self.DEFAULT_ENDPOINT
+        )).strip()
+        self.timeout = timeout or self.DEFAULT_TIMEOUT
+        self.api_version = api_version or os.environ.get(
+            "ANTHROPIC_VERSION", "2023-06-01"
+        )
+        self.available = bool(self.api_key and self.model and self.endpoint)
+
+    def json_call(self, system_prompt, user_content, max_tokens=400):
+        if not self.available:
             return None
+        payload = json.dumps({
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": user_content[:4000]}],
+        }).encode("utf-8")
+        request = urllib.request.Request(
+            self.endpoint,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": self.api_key,
+                "anthropic-version": self.api_version,
+            },
+            method="POST",
+        )
         try:
-            return json.loads(cleaned[start:end + 1])
-        except json.JSONDecodeError:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                body = json.loads(response.read().decode("utf-8"))
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError,
+                json.JSONDecodeError):
             return None
+
+        try:
+            text = "".join(
+                block["text"] for block in body["content"]
+                if block.get("type") == "text"
+            )
+        except (AttributeError, KeyError, TypeError):
+            return None
+        return _json_object_from_text(text)
 
 
 def evaluate(classifier, probes, verbose=False):
@@ -188,19 +253,38 @@ def evaluate(classifier, probes, verbose=False):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--classifier", choices=["qwen"], default="qwen")
+    ap.add_argument("--classifier", choices=["qwen", "anthropic"], default="qwen")
     ap.add_argument("--base-model", default="Qwen/Qwen2.5-3B-Instruct")
     ap.add_argument("--adapter", default=None)
     ap.add_argument("--probes", type=Path,
                     default=Path(__file__).parent / "probes.jsonl")
     ap.add_argument("--no-4bit", action="store_true")
+    ap.add_argument("--anthropic-api-key", default=None,
+                    help="Defaults to ANTHROPIC_API_KEY.")
+    ap.add_argument("--anthropic-model", default=None,
+                    help="Defaults to ANTHROPIC_MODEL; required for Anthropic.")
+    ap.add_argument("--anthropic-endpoint", default=None,
+                    help="Defaults to ANTHROPIC_API_BASE or the Messages API.")
+    ap.add_argument("--timeout", type=float, default=None)
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args()
 
     probes = [json.loads(l) for l in open(args.probes, encoding="utf-8") if l.strip()]
 
-    classifier = QwenClassifier(args.base_model, args.adapter, args.no_4bit)
-    label = f"{args.base_model}" + (f" + {args.adapter}" if args.adapter else " (base)")
+    if args.classifier == "qwen":
+        classifier = QwenClassifier(args.base_model, args.adapter, args.no_4bit)
+        label = f"{args.base_model}" + (f" + {args.adapter}" if args.adapter else " (base)")
+    else:
+        classifier = AnthropicClassifier(
+            args.anthropic_api_key, args.anthropic_model,
+            args.anthropic_endpoint, args.timeout,
+        )
+        label = f"Anthropic {classifier.model or '<missing model>'}"
+        if not classifier.available:
+            ap.error(
+                "Anthropic conformance requires ANTHROPIC_API_KEY and "
+                "ANTHROPIC_MODEL (or --anthropic-api-key/--anthropic-model)."
+            )
     print(f"Classifier under test: {label}")
     print(f"Probes: {len(probes)}\n")
 

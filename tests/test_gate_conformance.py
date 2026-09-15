@@ -1,7 +1,9 @@
+import json
 import math
 import unittest
+from unittest.mock import patch
 
-from gate.conformance import evaluate
+from gate.conformance import AnthropicClassifier, evaluate
 
 
 class FixedClassifier:
@@ -57,6 +59,40 @@ class ConformanceResultValidationTests(unittest.TestCase):
         misses, noise, invalid, ok = self.evaluate_one(0.8, band="benign")
         self.assertEqual(len(noise), 1)
         self.assertFalse(misses or invalid or ok)
+
+
+class AnthropicClassifierTests(unittest.TestCase):
+    def test_requires_explicit_model_and_key(self):
+        classifier = AnthropicClassifier(api_key="key", model="")
+        self.assertFalse(classifier.available)
+
+    def test_parses_messages_api_response_and_uses_requested_model(self):
+        class Response:
+            def read(self):
+                return b'{"content":[{"type":"text","text":"{\\"risk_score\\": 0.91}"}]}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        classifier = AnthropicClassifier(
+            api_key="secret", model="production-haiku", endpoint="https://test.invalid"
+        )
+        with patch("gate.conformance.urllib.request.urlopen", return_value=Response()) as call:
+            result = classifier.json_call("system", "user", max_tokens=17)
+
+        self.assertEqual(result, {"risk_score": 0.91})
+        request = call.call_args.args[0]
+        self.assertEqual(request.get_header("X-api-key"), "secret")
+        self.assertEqual(json.loads(request.data)["model"], "production-haiku")
+        self.assertEqual(json.loads(request.data)["max_tokens"], 17)
+
+    def test_provider_failure_is_an_unparseable_read(self):
+        classifier = AnthropicClassifier(api_key="secret", model="production-haiku")
+        with patch("gate.conformance.urllib.request.urlopen", side_effect=OSError("offline")):
+            self.assertIsNone(classifier.json_call("system", "user"))
 
 
 class ProbeCoverageTests(unittest.TestCase):

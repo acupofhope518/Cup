@@ -70,9 +70,26 @@ verbatim from `app.py`, and checks that scores land in the band the tier
 thresholds require.
 
 ```bash
+# Candidate local model only; this does not validate production Haiku.
 python gate/conformance.py --base-model Qwen/Qwen2.5-3B-Instruct \
                            --adapter runs/assistivemind-v4/final -v
 ```
+
+Run the release gate against the actual Anthropic classifier with the exact
+deployed model identifier (do not substitute a generic Haiku name):
+
+```bash
+ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
+ANTHROPIC_MODEL="<exact-production-model-id>" \
+python gate/conformance.py --classifier anthropic -v
+```
+
+`AnthropicClassifier` calls the Messages API using the same two-member
+classifier contract as production. A missing key or model is a command error;
+HTTP, timeout, malformed-response, and parse failures become `UNPARSEABLE` and
+therefore fail this release gate. Set `ANTHROPIC_API_BASE` only when production
+uses a compatible proxy endpoint; otherwise the official Messages endpoint is
+used.
 
 Bands are the existing `CrisisHandler` thresholds, not new invention:
 
