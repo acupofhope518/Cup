@@ -64,7 +64,7 @@ So: **Haiku stays at the classifier seam. Qwen replaces DeepSeek.**
 ## The harness
 
 `conformance.py` runs any candidate classifier against 30 multilingual
-probes (10 languages; 19 risk and 11 non-risk cases), including six Haitian
+probes (10 languages; 18 risk and 12 non-risk cases), including six Haitian
 Creole polarity, third-party, and code-switch cases using the intake prompt
 verbatim from `app.py`, and checks that scores land in the band the tier
 thresholds require.

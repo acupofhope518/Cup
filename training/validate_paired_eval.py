@@ -21,6 +21,12 @@ def validate(path: Path):
         except json.JSONDecodeError as exc:
             errors.append(f"line {line_no}: invalid JSON ({exc})")
             continue
+        if not isinstance(case, dict):
+            errors.append(
+                f"line {line_no}: expected a JSON object, found "
+                f"{type(case).__name__}"
+            )
+            continue
         missing = REQUIRED - case.keys()
         if missing:
             errors.append(f"line {line_no}: missing {sorted(missing)}")
