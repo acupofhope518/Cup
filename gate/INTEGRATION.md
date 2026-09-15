@@ -60,9 +60,15 @@ it out means Qwen's presence never changes crisis routing.
 
 ```
 QWEN_API_BASE=https://<host>/v1     # unset = dormant, nothing changes
-QWEN_MODEL=assistivemind-qwen-v4
+QWEN_MODEL=assistivemind-qwen       # stable live alias; pin weights separately
 QWEN_API_KEY=                       # optional; self-hosted vLLM/Ollama need none
 ```
+
+`QWEN_MODEL` is a live serving alias, not the cognition architecture name.
+Keep the stable `assistivemind-qwen` alias used by the adapter while recording
+the immutable checkpoint revision behind it in deployment metadata. A Gematria
+experiment can live at `runs/gematria-v1/final` without renaming either the
+AssistiveMind product or its serving endpoint to Gematria.
 
 Unset `QWEN_API_BASE` and `available` is False, the router skips it
 entirely, and behaviour is byte-identical to today. That is the rollback:

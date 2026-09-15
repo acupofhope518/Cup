@@ -108,3 +108,28 @@ marked `"gate_owned": true` — they remain as monitors of what happens if
 the gate misses, **not** as cases the model is expected to pass.
 
 This conclusion is scale-dependent. Re-test it if the base model changes.
+
+## Gematria paired evaluation (next architecture experiment)
+
+`gematria_v1_eval.jsonl` is a held-out discrimination **smoke test**, not
+training data or proof of learned behavior. Its 12 cases form six matched pairs:
+correlation, dependency, invariant,
+abstraction, long-context synthesis, and encoded signal. Every pair contains one
+supported relationship and one seductive coincidence. This makes rejecting an
+unsupported pattern as important as finding a real one.
+
+Validate pair integrity with:
+
+```bash
+python training/validate_paired_eval.py data/gematria_v1_eval.jsonl
+```
+
+Do not put either benchmark prompt into supervised training. Build separate
+training pairs that teach the same reasoning contract, then run the existing
+eval-leakage check. Compare the unmodified base model, the Gematria adapter,
+and current routed AssistiveMind on this exact held-out file.
+
+The next benchmark milestone is 10–20 curated pairs per capability class, with
+near-matched adversarial wording. Additions should increase discriminatory
+power, not merely case count. No Gematria-specific training corpus or completed
+three-way run is represented by the files currently in this repository.

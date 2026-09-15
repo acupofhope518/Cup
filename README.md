@@ -1,6 +1,18 @@
-# Cup
+# AssistiveMind
 
-Scratch repo for fine-tuning Qwen on the AssistiveMind dataset.
+Fine-tuning and safety-evaluation workspace for **AssistiveMind**. **Gematria**
+is the internal cognitive architecture being tested—not a new public product
+identity. Its job is disciplined structural reasoning: discover relationships,
+try to disprove them, calibrate confidence, and only then express a result.
+
+Structural reasoning is a capability target, not a safety mechanism.
+Multilingual crisis content is intercepted before generation by a separately
+validated classifier and deterministic routing layer; Gematria refuses the
+crisis generation mode. See [`GEMATRIA.md`](GEMATRIA.md) for the cognition /
+expression boundary, [`SAFETY.md`](SAFETY.md) for release criteria, and
+[`gate/README.md`](gate/README.md) for the measured failure analysis.
+The Gematria fine-tune and three-way comparison have **not** yet been run; see
+[`EXPERIMENT.md`](EXPERIMENT.md) for the artifact checklist and run protocol.
 
 ## Layout
 
@@ -18,6 +30,9 @@ Scratch repo for fine-tuning Qwen on the AssistiveMind dataset.
   fine; same test case is not. See `EVAL_FINDINGS.md`.
 - `training/train.py` — QLoRA fine-tune script (transformers + peft +
   TRL's `SFTTrainer`) for Qwen2.5-Instruct models.
+- `data/gematria_v1_eval.jsonl` — paired discrimination stress tests where a
+  real pattern and a seductive non-pattern are equally valid outcomes. This is
+  a smoke test, not a completed Gematria experiment.
 
 ## Workflow
 
@@ -31,6 +46,9 @@ python training/validate_dataset.py data/assistivemind_v4_core_chat.jsonl
 python training/check_eval_leakage.py \
     --train data/assistivemind_v4_master.jsonl \
     --eval data/assistivemind_v4_eval.jsonl
+
+# 1c. Validate the matched structural-discrimination benchmark.
+python training/validate_paired_eval.py data/gematria_v1_eval.jsonl
 
 # 2. Train (defaults to a single-GPU 4-bit QLoRA setup, e.g. a 4090).
 python training/train.py \

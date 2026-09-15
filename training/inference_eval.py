@@ -55,6 +55,11 @@ def parse_args():
     ap.add_argument("--eval-dataset", type=Path, required=True)
     ap.add_argument("--max-new-tokens", type=int, default=300)
     ap.add_argument("--no-4bit", action="store_true")
+    ap.add_argument("--output-jsonl", type=Path, default=None,
+                    help="Optionally save case IDs and replies for a later "
+                         "three-way comparison.")
+    ap.add_argument("--run-label", default=None,
+                    help="Stable label written to --output-jsonl.")
     return ap.parse_args()
 
 
@@ -90,6 +95,7 @@ def main():
     with open(args.eval_dataset, encoding="utf-8") as f:
         cases = [json.loads(line) for line in f if line.strip()]
 
+    captured = []
     for i, case in enumerate(cases, start=1):
         messages = [
             {"role": "system", "content": system_prompt},
@@ -117,6 +123,18 @@ def main():
         print("MODEL REPLY:")
         print(reply)
         print()
+        captured.append({
+            "id": case.get("id", str(i)),
+            "run": args.run_label or ("base" if args.adapter is None else "adapter"),
+            "reply": reply,
+        })
+
+    if args.output_jsonl:
+        args.output_jsonl.parent.mkdir(parents=True, exist_ok=True)
+        with open(args.output_jsonl, "w", encoding="utf-8") as f:
+            for record in captured:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        print(f"Saved {len(captured)} replies to {args.output_jsonl}")
 
 
 if __name__ == "__main__":
