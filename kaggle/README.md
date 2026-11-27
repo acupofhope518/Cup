@@ -16,14 +16,30 @@ for iterating before renting a bigger box.
    account has a verified phone number.
 3. **Run All.**
 
-No Kaggle Dataset upload is needed: the notebook downloads
-`assistivemind_v4_core_chat.jsonl` from the repo itself. If an attached
-dataset of that name exists it is used instead, so you can still pin a
-specific copy by uploading one and using **Add Data** (**File → Add
-input** in the editor menu).
+**Upload the training data as a Kaggle Dataset.** The notebook tries to
+download `assistivemind_v4_core_chat.jsonl` from GitHub, but this repo is
+private, so that download fails from Kaggle. Upload
+`data/assistivemind_v4_core_chat.jsonl` as a Kaggle Dataset and attach it
+with **Add Data** (**File → Add input** in the editor menu). An attached
+file of that name is always used first.
 
-The eval set and all training scripts are embedded directly in the
-notebook, so only the training data is fetched at runtime.
+The eval set, the training scripts, and the classifier conformance harness
+(`gate/conformance.py` + `gate/probes.jsonl`) are embedded directly in the
+notebook. `tests/test_notebook_sync.py` fails if any embedded copy drifts
+from the repo file.
+
+## What Run All produces
+
+In `/kaggle/working`:
+
+- `assistivemind-v4-lora.zip`: the adapter
+- `conformance_v4.txt`: classifier-seam probes against the v4 adapter
+- `conformance_base.txt`: the same probes against base Qwen (control)
+
+The behavioural eval (`inference_eval.py`) prints to the cell output;
+read it against each case's expected/avoid criteria. The conformance runs
+are a measurement for EVAL_FINDINGS.md, not a path to putting Qwen in the
+classifier seat.
 
 ## Why Qwen2.5-3B here instead of 7B
 

@@ -9,7 +9,11 @@ Implements the provider contract that `CloudLLMRouter` consumes:
 
 This is the **generation** seat — the one DeepSeek vacated. It is not the
 classifier seat. `IntakeClassifier` stays wired to
-`self.llm.cloud.anthropic` at app.py:6910; see gate/README.md for why.
+`self.llm.cloud.anthropic` in AssistiveMind.__init__; see gate/README.md.
+
+Applied to AssistiveMind's app.py behind a default-deny `allow_qwen` flag:
+the router only tries Qwen for turns intake affirmatively cleared. See
+gate/INTEGRATION.md.
 
 REST, not in-process. AssistiveMind deploys to Railway with no GPU, and
 every existing provider here (DeepSeekLLM, OpenAIFallbackLLM) is REST over
