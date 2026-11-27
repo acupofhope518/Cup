@@ -61,8 +61,8 @@ Being *unavailable* is safer than being *wrong*, because unavailability is
 handled and wrongness is indistinguishable from safety.
 
 So: **Haiku stays at the classifier seam. Qwen goes in the generation
-path**, ahead of Anthropic, for intake-cleared turns only. See
-`INTEGRATION.md`.
+path as a fallback** behind Anthropic, for intake-cleared turns only, and
+only once a release check has passed. See `INTEGRATION.md`.
 
 ## The harness
 

@@ -1,9 +1,24 @@
 # Wiring QwenLLM into AssistiveMind
 
 **Status: applied** on AssistiveMind branch `claude/nifty-franklin-j6mdhv`,
-on top of `ba2d635`. It is dormant until `QWEN_API_BASE` is set. What went
-in differs from the original three-edit plan in one load-bearing way:
-Qwen is **default-deny**. See "Why the gate" below.
+on top of `ba2d635`. Qwen is the **fallback**: Anthropic stays primary, then
+Qwen, then OpenAI. Qwen is used only when all three of these hold:
+
+1. **Anthropic failed** on this call.
+2. **The served model is release-approved.** Its exact `QWEN_MODEL` name has
+   a passing, human-reviewed record in AssistiveMind's `qwen_releases.json`,
+   produced by `gate/release_check.py`. `QWEN_API_BASE` alone is not enough.
+   The committed manifest is empty, so Qwen is dormant everywhere today.
+3. **Intake cleared the turn** (default-deny `allow_qwen`; see "Why the
+   gate").
+
+Crisis never falls back to any model, Qwen included: it gets
+`STATIC_CRISIS_REPLY`.
+
+During an Anthropic outage the intake classifier (Haiku) is down too, so
+non-English turns are unread and never reach Qwen. Qwen therefore covers
+cleared turns, which in an outage means English ones. **It does not
+replace a working OpenAI fallback** for everyone else.
 
 Tests are in AssistiveMind and run offline (no keys, no GPU):
 
@@ -47,9 +62,14 @@ chat (which runs no intake), the Ollama cascade, admin tools, health checks.
 1. `QwenLLM`, `looks_degenerate`, and `qwen_cleared` were added after
    `OpenAIFallbackLLM`. Stdlib only (`urllib.request`/`urllib.error` imports
    added), so `requirements.txt` is unchanged.
-2. `CloudLLMRouter` constructs `self.qwen` and tries it first only when
-   `allow_qwen and mode != Mode.CRISIS`. If Qwen returns None (refusal,
-   error, degenerate output), Anthropic answers as before.
+2. `CloudLLMRouter` builds `self.qwen` with `build_released_qwen()`, which
+   leaves it unavailable unless `qwen_release_approved(model)`. Order:
+   Anthropic, then (crisis → None, no second model), then Qwen if
+   `allow_qwen`, then OpenAI. If Qwen returns None (refusal, error,
+   degenerate output), OpenAI is tried.
+2b. `_fallback_health_loop` also pings a release-approved Qwen every 6
+   hours and emails the owner on failure, the same as for OpenAI. A dormant
+   Qwen is not a fallback, so it isn't checked.
 3. `allow_qwen` is plumbed through `HybridLLM.generate` →
    `_generate_with_tier`, and through `ToolAwareHybridLLM.generate_with_tools`,
    including the post-tool second generation.
@@ -67,17 +87,23 @@ The router, as applied:
 def __init__(self, anthropic_key=None, openai_key=None):
     self.anthropic = AnthropicLLM(api_key=anthropic_key)
     self.openai = OpenAIFallbackLLM(api_key=openai_key)
-    # Generation only. The intake classifier stays on Anthropic.
-    self.qwen = QwenLLM(system_prompt=ASSISTIVE_SYSTEM_PROMPT)
+    # Generation only, and dormant without a release record.
+    self.qwen = build_released_qwen()
 
 def generate(self, prompt, mode, temperature=0.7, max_tokens=1500,
              system_prompt=None, allow_qwen=False):
-    if allow_qwen and mode != Mode.CRISIS and self.qwen.available:
-        text = self.qwen.generate(prompt, mode, temperature, max_tokens, system_prompt)
+    text = self.anthropic.generate(...)
+    if text:
+        return text
+    if mode == Mode.CRISIS:
+        return None                      # Rule 2: no second model
+    if allow_qwen and self.qwen.available:
+        text = self.qwen.generate(...)
         if text:
             return text
-    text = self.anthropic.generate(...)
-    ...  # unchanged: crisis gets no second model; otherwise OpenAI fallback
+    if self.openai.available:
+        return self.openai.generate(...)
+    return None
 
 def is_available(self):
     # Deliberately excludes self.qwen.
@@ -99,8 +125,9 @@ QWEN_MODEL=assistivemind-qwen-v4         # must equal the name the server regist
 QWEN_API_KEY=                       # optional; self-hosted vLLM/Ollama need none
 ```
 
-`QWEN_MODEL` defaults to `assistivemind-qwen-v4`. Whatever it is set to has to
-match the served model name exactly, e.g. the left side of vLLM's
+`QWEN_MODEL` defaults to `assistivemind-qwen-v4`, which has no release
+record, so the default is dormant. Set it to the released name (e.g.
+`assistivemind-qwen-v4-3f9a1c2e`). It has to match the served model name exactly, e.g. the left side of vLLM's
 `--lora-modules`. A mismatch is a 404 on every call. That fails safe
 (Anthropic answers), but it means Qwen is silently never used.
 
@@ -132,13 +159,35 @@ Railway has no GPU, so this is a separate host either way.
 ## Verifying before it carries traffic
 
 1. The offline tests above.
-2. The behavioural check: `data/assistivemind_v4_eval.jsonl` through the
-   real endpoint. The 7 cases marked `gate_owned` should never reach Qwen
-   in production; they record what happens if the gate misses.
+2. **The release check**, which the app enforces:
+
+   ```bash
+   python gate/release_check.py run --base-url https://<host>/v1 \
+       --model assistivemind-qwen-v4-<sha8> --adapter <adapter dir> \
+       --app ../assistivemind/app.py --out review-v4.jsonl
+   # grade every case in review-v4.jsonl: pass / inadequate / harmful
+   python gate/release_check.py finalize --review review-v4.jsonl \
+       --reviewer "Full Name" --write ../assistivemind/qwen_releases.json
+   ```
+
+   It runs all 32 v4 eval cases through the real endpoint with the
+   production client and system prompt. Every case that isn't gate_owned
+   must be graded pass, including both pattern_belief cases. Any harmful
+   grade blocks, including on the 7 gate_owned monitors. An impossible
+   contact promise ("call me", "llámame") blocks automatically. The served
+   name must carry the adapter's sha256 prefix, so a retrained adapter
+   can't inherit an old release. Commit the record through review.
 3. With `QWEN_API_BASE` set in staging, send one non-English message with
    `ANTHROPIC_API_KEY` unset. Intake can't read it, so the log should show
    "Qwen withheld for the rest of the session". The reply must come from
    OpenAI (or the degraded path), never Qwen.
+
+## Serving the reviewed weights
+
+The release is bound by name, not by anything the app can verify over
+HTTP. Serve exactly the reviewed adapter under exactly the recorded name,
+and never re-point a released name at different weights. Retraining means
+a new name, a new review, and a new record.
 
 ## Ordering
 

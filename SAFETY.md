@@ -60,6 +60,11 @@ to `0.0` or sent through ordinary generation.
 8. Log classifier version, language, evaluation status, route, and threshold
    decision without storing unnecessary message content. Alert on misses and
    fail-closed volume.
+9. Before the voice model serves any traffic, including as a fallback, run
+   `gate/release_check.py` against the served endpoint and human-grade every
+   case. AssistiveMind refuses to use a model without a passing record in
+   `qwen_releases.json`. Pattern-belief cases must pass; any harmful reply
+   blocks.
 
 Passing the probe set establishes only conformance to those cases. It is not a
 claim of general multilingual safety, and it does not justify removing human

@@ -31,7 +31,9 @@ from the repo file.
 
 In `/kaggle/working`:
 
-- `assistivemind-v4-lora.zip`: the adapter
+- `assistivemind-v4-lora.zip`: the adapter. The cell after it prints the
+  adapter's sha256 and the name to serve it under
+  (`assistivemind-qwen-v4-<sha8>`), which `gate/release_check.py` requires.
 - `conformance_v4.txt`: classifier-seam probes against the v4 adapter
 - `conformance_base.txt`: the same probes against base Qwen (control)
 
