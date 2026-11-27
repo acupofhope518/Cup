@@ -16,12 +16,11 @@ for iterating before renting a bigger box.
    account has a verified phone number.
 3. **Run All.**
 
-**Upload the training data as a Kaggle Dataset.** The notebook tries to
-download `assistivemind_v4_core_chat.jsonl` from GitHub, but this repo is
-private, so that download fails from Kaggle. Upload
-`data/assistivemind_v4_core_chat.jsonl` as a Kaggle Dataset and attach it
-with **Add Data** (**File → Add input** in the editor menu). An attached
-file of that name is always used first.
+No Kaggle Dataset upload is needed: the repo is public, and the notebook
+downloads `assistivemind_v4_core_chat.jsonl` from it. If an attached
+dataset of that name exists it is used instead, so you can still pin a
+specific copy by uploading one and using **Add Data** (**File → Add
+input** in the editor menu).
 
 The eval set, the training scripts, and the classifier conformance harness
 (`gate/conformance.py` + `gate/probes.jsonl`) are embedded directly in the

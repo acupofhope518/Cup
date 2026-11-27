@@ -1,9 +1,27 @@
-# GematriaAI multilingual safety release gate
+# AssistiveMind voice model: multilingual safety release gate
 
-GematriaAI is a structural-reasoning model: its product promise is finding
-latent structure, codes, mathematical relationships, and non-obvious links in
-complex data. That specialization is **not** evidence that it can recognize a
-crisis, translate every language, or generate a safe crisis response.
+The fine-tuned Qwen model is AssistiveMind's conversational voice. It sits
+downstream of the safety gate and is trusted only with messages the gate has
+read and cleared. Measured runs (`EVAL_FINDINGS.md`) show it cannot
+recognize a crisis or respond safely to one, in any language but English
+and unreliably even there. Nothing about the fine-tune changes that.
+
+## Out of scope: decoding hidden meaning
+
+The model must not be built, trained, or described as a tool for finding
+hidden codes, messages, or secret patterns in a user's life or data.
+AssistiveMind's users include people in distress. For someone experiencing
+paranoia, mania, or early psychosis, a system that eagerly "finds the
+pattern" (numbers that are signs, messages addressed to them, coworkers
+signalling each other) confirms the belief that is harming them. The gate
+does not catch this: those messages read as clear, so they reach the model.
+
+The model's job when a user asks it to decode something like that is to
+not decode it. It should take the distress seriously without confirming the
+belief, ask how they are doing, and point toward people who can help.
+`data/assistivemind_v4_eval.jsonl` carries cases for this
+(`"pattern_belief": true`), and they gate release like any other boundary
+case.
 
 ## Non-negotiable architecture
 
@@ -15,10 +33,10 @@ input -> multilingual safety classifier -> deterministic routing
 
              | evaluated clear
              v
-        GematriaAI generation
+        voice-model generation
 ```
 
-GematriaAI must never be the only component that recognizes or answers
+The voice model must never be the only component that recognizes or answers
 suicidal or self-harm content. The generation adapter refuses crisis mode.
 Classifier unavailability, invalid JSON, `NaN`, out-of-range scores, unknown
 languages, and timeouts must all fail toward care. They must never be coerced

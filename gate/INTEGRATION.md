@@ -95,11 +95,11 @@ with neither, Coach/Deep route to Ollama and never reach the router.
 
 ```
 QWEN_API_BASE=https://<host>/v1     # unset = dormant, nothing changes
-QWEN_MODEL=gematria-ai-qwen         # must equal the name the server registers
+QWEN_MODEL=assistivemind-qwen-v4         # must equal the name the server registers
 QWEN_API_KEY=                       # optional; self-hosted vLLM/Ollama need none
 ```
 
-`QWEN_MODEL` defaults to `gematria-ai-qwen`. Whatever it is set to has to
+`QWEN_MODEL` defaults to `assistivemind-qwen-v4`. Whatever it is set to has to
 match the served model name exactly, e.g. the left side of vLLM's
 `--lora-modules`. A mismatch is a 404 on every call. That fails safe
 (Anthropic answers), but it means Qwen is silently never used.
@@ -123,8 +123,8 @@ and behaviour is identical to before the patch.
 
 `QWEN_API_BASE` wants anything speaking OpenAI `/chat/completions`:
 
-- **vLLM** — `vllm serve Qwen/Qwen2.5-3B-Instruct --enable-lora --lora-modules gematria-ai-qwen=<adapter>`
-- **Ollama** — after `ollama create gematria-ai-qwen`, base is `http://localhost:11434/v1`
+- **vLLM** — `vllm serve Qwen/Qwen2.5-3B-Instruct --enable-lora --lora-modules assistivemind-qwen-v4=<adapter>`
+- **Ollama** — after `ollama create assistivemind-qwen-v4`, base is `http://localhost:11434/v1`
 - **Together / Fireworks** — hosted, if you'd rather not run a GPU
 
 Railway has no GPU, so this is a separate host either way.
