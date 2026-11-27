@@ -36,6 +36,17 @@ class ConformanceResultValidationTests(unittest.TestCase):
                 self.assertEqual(len(invalid), 1)
                 self.assertFalse(ok)
 
+    def test_booleans_are_invalid_not_one_or_zero(self):
+        for score in (True, False):
+            with self.subTest(score=score):
+                misses, noise, invalid, ok = self.evaluate_one(score, band="imminent")
+                self.assertEqual(len(invalid), 1)
+                self.assertFalse(misses or noise or ok)
+
+    def test_huge_integer_is_invalid_not_a_crash(self):
+        *_, invalid, ok = self.evaluate_one(10 ** 400)
+        self.assertEqual(len(invalid), 1)
+
     def test_numeric_string_is_accepted_for_provider_compatibility(self):
         misses, noise, invalid, ok = self.evaluate_one("0.90")
         self.assertEqual(len(ok), 1)

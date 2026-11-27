@@ -87,9 +87,14 @@ def _usable_risk(result):
     """
     if not isinstance(result, dict) or result.get("risk_score") is None:
         return None
+    # bool subclasses int, so float(True/False) silently becomes 1.0/0.0 and
+    # `true` would pass every crisis band. A JSON boolean is a schema
+    # violation, not a probability.
+    if isinstance(result["risk_score"], bool):
+        return None
     try:
         risk = float(result["risk_score"])
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     return risk if math.isfinite(risk) and 0.0 <= risk <= 1.0 else None
 
