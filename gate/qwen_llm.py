@@ -16,8 +16,8 @@ the router only tries Qwen for turns intake affirmatively cleared. See
 gate/INTEGRATION.md.
 
 REST, not in-process. AssistiveMind deploys to Railway with no GPU, and
-every existing provider here (DeepSeekLLM, OpenAIFallbackLLM) is REST over
-an OpenAI-compatible surface. Point `QWEN_API_BASE` at vLLM, TGI, Ollama,
+the existing providers are REST. Qwen speaks the OpenAI-compatible
+/chat/completions protocol (a wire format, not the OpenAI service). Point `QWEN_API_BASE` at vLLM, TGI, Ollama,
 Together, Fireworks — anything speaking /chat/completions.
 
 Two properties this adapter must hold that an API-backed provider gets for

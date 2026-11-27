@@ -1,8 +1,9 @@
 # Wiring QwenLLM into AssistiveMind
 
 **Status: applied** on AssistiveMind branch `claude/nifty-franklin-j6mdhv`,
-on top of `ba2d635`. Qwen is the **fallback**: Anthropic stays primary, then
-Qwen, then OpenAI. Qwen is used only when all three of these hold:
+on top of `ba2d635`. Qwen is the **only fallback**: Anthropic stays primary,
+then Qwen. OpenAI is no longer a provider and was removed from the code.
+Qwen is used only when all three of these hold:
 
 1. **Anthropic failed** on this call.
 2. **The served model is release-approved.** Its exact `QWEN_MODEL` name has
@@ -15,10 +16,16 @@ Qwen, then OpenAI. Qwen is used only when all three of these hold:
 Crisis never falls back to any model, Qwen included: it gets
 `STATIC_CRISIS_REPLY`.
 
+Any other turn that no model answers gets `STATIC_OUTAGE_REPLY`: fixed
+text that says the system is down and gives helplines, sent verbatim. The
+owner gets an email, at most one per hour.
+
 During an Anthropic outage the intake classifier (Haiku) is down too, so
-non-English turns are unread and never reach Qwen. Qwen therefore covers
-cleared turns, which in an outage means English ones. **It does not
-replace a working OpenAI fallback** for everyone else.
+non-English turns are unread and never reach Qwen. In an outage, Qwen
+therefore covers English turns that pass the lexical check, and **everyone
+else gets `STATIC_OUTAGE_REPLY`**. That is the safe answer when nothing
+can read the message, and it is the reason there is no second
+general-purpose model in the chain.
 
 Tests are in AssistiveMind and run offline (no keys, no GPU):
 
@@ -59,17 +66,26 @@ chat (which runs no intake), the Ollama cascade, admin tools, health checks.
 
 ## What changed in app.py
 
-1. `QwenLLM`, `looks_degenerate`, and `qwen_cleared` were added after
-   `OpenAIFallbackLLM`. Stdlib only (`urllib.request`/`urllib.error` imports
+1. `QwenLLM`, `looks_degenerate`, and `qwen_cleared` were added to the
+   cloud-provider section. Stdlib only (`urllib.request`/`urllib.error` imports
    added), so `requirements.txt` is unchanged.
 2. `CloudLLMRouter` builds `self.qwen` with `build_released_qwen()`, which
    leaves it unavailable unless `qwen_release_approved(model)`. Order:
    Anthropic, then (crisis → None, no second model), then Qwen if
-   `allow_qwen`, then OpenAI. If Qwen returns None (refusal, error,
-   degenerate output), OpenAI is tried.
-2b. `_fallback_health_loop` also pings a release-approved Qwen every 6
-   hours and emails the owner on failure, the same as for OpenAI. A dormant
-   Qwen is not a fallback, so it isn't checked.
+   `allow_qwen`. If Qwen returns None (refusal, error, degenerate output),
+   the router returns None.
+2b. `_fallback_health_loop` pings a release-approved Qwen every 6 hours and
+   emails the owner on failure. A dormant Qwen is not a fallback, so it
+   isn't checked. (The OpenAI health check was removed with OpenAI.)
+2c. When no model answers a non-crisis turn, `HybridLLM.generate` returns
+   `STATIC_OUTAGE_REPLY` (tier `static_outage`), and `_alert_outage_throttled`
+   emails the owner at most hourly. It used to improvise a fragment from
+   `LOCAL_PRESENCE_PREFIXES` ("From a distance, it seems."), which the
+   renderer then prefixed again. Both chat paths swap the static text back in
+   after every enhancer, so it reaches the user verbatim (or
+   `STATIC_CRISIS_REPLY` if a crisis was detected), and neither static reply
+   is cached. `LocalFallbackLLM` failures now return None instead of
+   placeholder prose, so they reach the same path.
 3. `allow_qwen` is plumbed through `HybridLLM.generate` →
    `_generate_with_tier`, and through `ToolAwareHybridLLM.generate_with_tools`,
    including the post-tool second generation.
@@ -84,9 +100,8 @@ chat (which runs no intake), the Ollama cascade, admin tools, health checks.
 The router, as applied:
 
 ```python
-def __init__(self, anthropic_key=None, openai_key=None):
+def __init__(self, anthropic_key=None, **_ignored):
     self.anthropic = AnthropicLLM(api_key=anthropic_key)
-    self.openai = OpenAIFallbackLLM(api_key=openai_key)
     # Generation only, and dormant without a release record.
     self.qwen = build_released_qwen()
 
@@ -101,21 +116,19 @@ def generate(self, prompt, mode, temperature=0.7, max_tokens=1500,
         text = self.qwen.generate(...)
         if text:
             return text
-    if self.openai.available:
-        return self.openai.generate(...)
-    return None
+    return None                          # HybridLLM → STATIC_OUTAGE_REPLY
 
 def is_available(self):
     # Deliberately excludes self.qwen.
-    return self.anthropic.available or self.openai.available
+    return self.anthropic.available
 ```
 
 The `is_available()` omission is load-bearing, not an oversight.
 `_select_tier` calls it to decide whether crisis can use `CLOUD_HEAVY`.
 If Qwen counted, a Qwen-only deployment would report crisis as servable.
 Leaving it out means Qwen's presence never changes crisis routing. It also
-means Qwen only ever runs alongside a working Anthropic or OpenAI key:
-with neither, Coach/Deep route to Ollama and never reach the router.
+means Qwen only ever runs alongside a configured Anthropic key: without
+one, Coach/Deep route to Ollama and never reach the router.
 
 ## Environment
 
@@ -179,8 +192,8 @@ Railway has no GPU, so this is a separate host either way.
    can't inherit an old release. Commit the record through review.
 3. With `QWEN_API_BASE` set in staging, send one non-English message with
    `ANTHROPIC_API_KEY` unset. Intake can't read it, so the log should show
-   "Qwen withheld for the rest of the session". The reply must come from
-   OpenAI (or the degraded path), never Qwen.
+   "Qwen withheld for the rest of the session". The reply must be
+   `STATIC_OUTAGE_REPLY`, never Qwen.
 
 ## Serving the reviewed weights
 

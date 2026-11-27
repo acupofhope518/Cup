@@ -19,8 +19,8 @@ is False — which is every language except English at ≥0.70 confidence — it
 the only thing that reads the message for crisis risk. Its `risk_score` feeds
 the 4-tier thresholds directly. Today: Haiku 4.5.
 
-**The generation path** — `CloudLLMRouter` (Anthropic primary, OpenAI
-fallback; `DeepSeekLLM` is dormant), serving Coach, Deep, and Crisis modes.
+**The generation path** — `CloudLLMRouter` (Anthropic primary, release-gated
+Qwen fallback; `DeepSeekLLM` is dormant), serving Coach, Deep, and Crisis modes.
 This is the voice and reasoning engine, downstream of the gate.
 
 ## Qwen belongs in the generation path, not the classifier seam
