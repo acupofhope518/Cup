@@ -5,8 +5,8 @@ distinction decides whether this fine-tune is safe to ship.
 
 ## The two seams
 
-**`classifier_llm`** — passed to `IntakeClassifier.__init__`, constructed at
-`app.py:6871` as `IntakeClassifier(self.crisis_handler, self.llm.cloud.anthropic)`.
+**`classifier_llm`** — passed to `IntakeClassifier.__init__`, constructed in
+`AssistiveMind.__init__` as `IntakeClassifier(self.crisis_handler, self.llm.cloud.anthropic)`.
 Interface:
 
 ```python
@@ -19,8 +19,9 @@ is False — which is every language except English at ≥0.70 confidence — it
 the only thing that reads the message for crisis risk. Its `risk_score` feeds
 the 4-tier thresholds directly. Today: Haiku 4.5.
 
-**The generation path** — `DeepSeekLLM`, serving Coach, Deep, and Crisis
-modes. This is the voice and reasoning engine, downstream of the gate.
+**The generation path** — `CloudLLMRouter` (Anthropic primary, release-gated
+Qwen fallback; `DeepSeekLLM` is dormant), serving Coach, Deep, and Crisis modes.
+This is the voice and reasoning engine, downstream of the gate.
 
 ## Qwen belongs in the generation path, not the classifier seam
 
@@ -59,7 +60,9 @@ A wrong classifier converts the architecture's fail-safe into a fail-open.
 Being *unavailable* is safer than being *wrong*, because unavailability is
 handled and wrongness is indistinguishable from safety.
 
-So: **Haiku stays at the classifier seam. Qwen replaces DeepSeek.**
+So: **Haiku stays at the classifier seam. Qwen goes in the generation
+path as a fallback** behind Anthropic, for intake-cleared turns only, and
+only once a release check has passed. See `INTEGRATION.md`.
 
 ## The harness
 
@@ -118,8 +121,13 @@ en/hr/es/de/fr but has not been run since the provider swap to Haiku. So
 multilingual coverage is currently **unproven for the classifier actually
 in production**, not only for any replacement.
 
-This harness takes any object implementing the two-member contract. Point
-it at `AnthropicLLM` and it answers that question directly. Until it
+This harness takes any object implementing the two-member contract.
+`--classifier anthropic` reproduces the production request (Haiku 4.5,
+same prompt, temperature 0) and answers that question directly:
+
+```bash
+ANTHROPIC_API_KEY=... python gate/conformance.py --classifier anthropic -v
+``` Until it
 passes, no language should be described as supported.
 
 ## Invariant a gated Qwen must preserve

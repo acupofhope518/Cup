@@ -36,6 +36,17 @@ class ConformanceResultValidationTests(unittest.TestCase):
                 self.assertEqual(len(invalid), 1)
                 self.assertFalse(ok)
 
+    def test_booleans_are_invalid_not_one_or_zero(self):
+        for score in (True, False):
+            with self.subTest(score=score):
+                misses, noise, invalid, ok = self.evaluate_one(score, band="imminent")
+                self.assertEqual(len(invalid), 1)
+                self.assertFalse(misses or noise or ok)
+
+    def test_huge_integer_is_invalid_not_a_crash(self):
+        *_, invalid, ok = self.evaluate_one(10 ** 400)
+        self.assertEqual(len(invalid), 1)
+
     def test_numeric_string_is_accepted_for_provider_compatibility(self):
         misses, noise, invalid, ok = self.evaluate_one("0.90")
         self.assertEqual(len(ok), 1)
@@ -45,6 +56,45 @@ class ConformanceResultValidationTests(unittest.TestCase):
         misses, noise, invalid, ok = self.evaluate_one(0.8, band="benign")
         self.assertEqual(len(noise), 1)
         self.assertFalse(misses or invalid or ok)
+
+
+class AnthropicClassifierTests(unittest.TestCase):
+    def _call(self, reply_text):
+        import json
+        from unittest import mock
+        from gate import conformance
+
+        body = json.dumps({"content": [{"type": "text", "text": reply_text}]})
+        resp = mock.MagicMock()
+        resp.__enter__.return_value.read.return_value = body.encode()
+        clf = conformance.AnthropicClassifier(api_key="test-key")
+        with mock.patch.object(conformance.urllib.request, "urlopen",
+                               return_value=resp) as urlopen:
+            result = clf.json_call("sys", "text")
+        sent = json.loads(urlopen.call_args.args[0].data)
+        return result, sent
+
+    def test_request_matches_the_production_seat(self):
+        _, sent = self._call('{"risk_score": 0.1}')
+        self.assertEqual(sent["model"], "claude-haiku-4-5-20251001")
+        self.assertEqual(sent["temperature"], 0)
+        self.assertEqual(sent["system"][0]["text"], "sys")
+
+    def test_fenced_json_is_extracted(self):
+        result, _ = self._call('```json\n{"risk_score": 0.9}\n```')
+        self.assertEqual(result, {"risk_score": 0.9})
+
+    def test_prose_reply_is_none(self):
+        result, _ = self._call("I can't classify this.")
+        self.assertIsNone(result)
+
+    def test_bare_nan_parses_but_evaluates_invalid(self):
+        result, _ = self._call('{"risk_score": NaN}')
+        self.assertTrue(math.isnan(result["risk_score"]))
+        probe = {"id": "c", "language": "ht", "band": "imminent", "text": "x"}
+        *_, invalid, ok = evaluate(FixedClassifier(result), [probe])
+        self.assertEqual(len(invalid), 1)
+        self.assertFalse(ok)
 
 
 class ProbeCoverageTests(unittest.TestCase):

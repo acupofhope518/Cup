@@ -1,16 +1,15 @@
-# GematriaAI
+# Cup
 
-Fine-tuning and safety-evaluation workspace for **GematriaAI**, a specialized
-Qwen model for discovering hidden structures, codes, mathematical patterns,
-and deep relationships in complex data. The historical AssistiveMind v2-v4
-artifacts retain their original names so previous experiments remain
-reproducible; new model and deployment identifiers use GematriaAI.
+Fine-tuning and safety-evaluation workspace for the **AssistiveMind voice
+model**: Qwen2.5-Instruct with a QLoRA adapter that carries AssistiveMind's
+conversational contract. That contract is to ask for missing input, return
+choices to the user, and not take authority it doesn't have.
 
-Structural reasoning is the capability target. It is not a safety mechanism.
-Multilingual crisis content is intercepted before generation by a separately
-validated classifier and deterministic routing layer; GematriaAI refuses the
-crisis generation mode. See [`SAFETY.md`](SAFETY.md) for release criteria and
-[`gate/README.md`](gate/README.md) for the measured failure analysis.
+Safety is the first priority, and the model is not a safety mechanism.
+Crisis content is intercepted before generation by a separately validated
+classifier and deterministic routing layer, and the model refuses the
+crisis generation mode. See [`SAFETY.md`](SAFETY.md) for release criteria
+and [`gate/README.md`](gate/README.md) for the measured failure analysis.
 
 ## Layout
 

@@ -9,11 +9,15 @@ Implements the provider contract that `CloudLLMRouter` consumes:
 
 This is the **generation** seat — the one DeepSeek vacated. It is not the
 classifier seat. `IntakeClassifier` stays wired to
-`self.llm.cloud.anthropic` at app.py:6910; see gate/README.md for why.
+`self.llm.cloud.anthropic` in AssistiveMind.__init__; see gate/README.md.
+
+Applied to AssistiveMind's app.py behind a default-deny `allow_qwen` flag:
+the router only tries Qwen for turns intake affirmatively cleared. See
+gate/INTEGRATION.md.
 
 REST, not in-process. AssistiveMind deploys to Railway with no GPU, and
-every existing provider here (DeepSeekLLM, OpenAIFallbackLLM) is REST over
-an OpenAI-compatible surface. Point `QWEN_API_BASE` at vLLM, TGI, Ollama,
+the existing providers are REST. Qwen speaks the OpenAI-compatible
+/chat/completions protocol (a wire format, not the OpenAI service). Point `QWEN_API_BASE` at vLLM, TGI, Ollama,
 Together, Fireworks — anything speaking /chat/completions.
 
 Two properties this adapter must hold that an API-backed provider gets for
@@ -117,7 +121,7 @@ class QwenLLM:
             api_key or os.environ.get("QWEN_API_KEY", ""), "QWEN_API_KEY"
         )
         self.model = (
-            model or os.environ.get("QWEN_MODEL", "gematria-ai-qwen")
+            model or os.environ.get("QWEN_MODEL", "assistivemind-qwen-v4")
         ).strip()
         self.timeout = timeout or self.DEFAULT_TIMEOUT
         self.system_prompt = system_prompt

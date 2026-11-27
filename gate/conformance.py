@@ -31,6 +31,10 @@ Two failure classes, deliberately reported apart:
           trust and makes the product worse, but fails safe.
 
 Usage:
+    # The production classifier (Haiku 4.5, same request app.py sends):
+    ANTHROPIC_API_KEY=... python gate/conformance.py --classifier anthropic -v
+
+    # A local Qwen candidate (needs a GPU):
     python gate/conformance.py --classifier qwen \\
         --base-model Qwen/Qwen2.5-3B-Instruct \\
         --adapter runs/assistivemind-v4/final
@@ -38,8 +42,11 @@ Usage:
 import argparse
 import json
 import math
+import os
 import re
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 # Verbatim from app.py — the prompt the real intake layer sends. Testing
@@ -80,11 +87,83 @@ def _usable_risk(result):
     """
     if not isinstance(result, dict) or result.get("risk_score") is None:
         return None
+    # bool subclasses int, so float(True/False) silently becomes 1.0/0.0 and
+    # `true` would pass every crisis band. A JSON boolean is a schema
+    # violation, not a probability.
+    if isinstance(result["risk_score"], bool):
+        return None
     try:
         risk = float(result["risk_score"])
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     return risk if math.isfinite(risk) and 0.0 <= risk <= 1.0 else None
+
+
+def _extract_json(text):
+    """Same extraction AnthropicLLM.json_call uses: strip fences, isolate the
+    object, parse. None on any failure — the contract's null."""
+    if not text:
+        return None
+    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
+    start, end = cleaned.find("{"), cleaned.rfind("}")
+    if start == -1 or end <= start:
+        return None
+    try:
+        return json.loads(cleaned[start:end + 1])
+    except json.JSONDecodeError:
+        return None
+
+
+class AnthropicClassifier:
+    """The production classifier seat, reproduced request-for-request.
+
+    Mirrors AnthropicLLM._request + json_call in app.py: Messages API over
+    REST, system prompt as a top-level block, temperature 0. Keep MODEL in
+    sync with ANTHROPIC_LIGHT_MODEL there — testing a different model would
+    test a different system.
+    """
+
+    API_BASE = "https://api.anthropic.com/v1"
+    API_VERSION = "2023-06-01"
+    MODEL = "claude-haiku-4-5-20251001"
+
+    def __init__(self, model=None, api_key=None, timeout=45):
+        self.api_key = "".join(
+            (api_key or os.environ.get("ANTHROPIC_API_KEY", "")).split())
+        self.model = model or self.MODEL
+        self.timeout = timeout
+        self.available = bool(self.api_key)
+        if not self.available:
+            raise SystemExit("ANTHROPIC_API_KEY is not set.")
+
+    def json_call(self, system_prompt, user_content, max_tokens=400):
+        payload = json.dumps({
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "temperature": 0,
+            "system": [{"type": "text", "text": system_prompt,
+                        "cache_control": {"type": "ephemeral"}}],
+            "messages": [{"role": "user", "content": user_content}],
+        }).encode("utf-8")
+        request = urllib.request.Request(
+            f"{self.API_BASE}/messages", data=payload, method="POST",
+            headers={"x-api-key": self.api_key,
+                     "anthropic-version": self.API_VERSION,
+                     "content-type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as r:
+                body = json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            print(f"  ! Anthropic HTTP {e.code}: {e.read().decode('utf-8', 'replace')[:200]}",
+                  file=sys.stderr)
+            return None
+        except Exception as e:
+            print(f"  ! Anthropic request failed: {e}", file=sys.stderr)
+            return None
+        text = "".join(b.get("text", "") for b in body.get("content") or []
+                       if b.get("type") == "text")
+        return _extract_json(text)
 
 
 class QwenClassifier:
@@ -139,17 +218,7 @@ class QwenClassifier:
         text = self.tokenizer.decode(
             out[0][encoded["input_ids"].shape[1]:], skip_special_tokens=True
         )
-
-        # Same extraction AnthropicLLM.json_call uses: strip fences, isolate
-        # the object, parse. None on any failure — the contract's null.
-        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
-        start, end = cleaned.find("{"), cleaned.rfind("}")
-        if start == -1 or end <= start:
-            return None
-        try:
-            return json.loads(cleaned[start:end + 1])
-        except json.JSONDecodeError:
-            return None
+        return _extract_json(text)
 
 
 def evaluate(classifier, probes, verbose=False):
@@ -184,7 +253,9 @@ def evaluate(classifier, probes, verbose=False):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--classifier", choices=["qwen"], default="qwen")
+    ap.add_argument("--classifier", choices=["anthropic", "qwen"], default="qwen")
+    ap.add_argument("--anthropic-model", default=AnthropicClassifier.MODEL,
+                    help="only with --classifier anthropic")
     ap.add_argument("--base-model", default="Qwen/Qwen2.5-3B-Instruct")
     ap.add_argument("--adapter", default=None)
     ap.add_argument("--probes", type=Path,
@@ -195,8 +266,12 @@ def main():
 
     probes = [json.loads(l) for l in open(args.probes, encoding="utf-8") if l.strip()]
 
-    classifier = QwenClassifier(args.base_model, args.adapter, args.no_4bit)
-    label = f"{args.base_model}" + (f" + {args.adapter}" if args.adapter else " (base)")
+    if args.classifier == "anthropic":
+        classifier = AnthropicClassifier(model=args.anthropic_model)
+        label = f"Anthropic {classifier.model} (production seat)"
+    else:
+        classifier = QwenClassifier(args.base_model, args.adapter, args.no_4bit)
+        label = f"{args.base_model}" + (f" + {args.adapter}" if args.adapter else " (base)")
     print(f"Classifier under test: {label}")
     print(f"Probes: {len(probes)}\n")
 
